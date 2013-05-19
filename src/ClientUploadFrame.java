@@ -411,11 +411,12 @@ public class ClientUploadFrame extends javax.swing.JFrame implements Runnable {
             } catch (InterruptedException ex) {}
             
             try {
-                //System.out.println("sent byte "+temp);
                 dataOut.writeByte(0);
                 dataOut.flush();
                 temp=dataIn.readByte();
-            }catch (IOException ex) {temp=1;}
+            }catch (IOException ex) {
+                temp=-1;
+            }
             
             if(temp == 0)
             {
@@ -426,28 +427,33 @@ public class ClientUploadFrame extends javax.swing.JFrame implements Runnable {
                 }
                 else if(state == SENT_FILE)
                 {
-                    upload();
+                    try {
+                        dataOut.writeByte(1);
+                        upload();
+                        break;
+                    } catch (IOException ex) {
+                        Logger.getLogger(ClientUploadFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
                 }
             }
-            else if(temp == 1 && connectionStatus==CONNECTED)
+            else if(temp == -1 && connectionStatus==CONNECTED)
             {
                 System.out.println("error sent byte "+temp);
                 Popup("Warning","connection is broken!",Color.red);
                 Disconnect();
                 break;
-                
             }
         }
     }
     
-    
-    private void upload()
+    public void upload()
     {
-        
-        try{
-            dataOut.writeByte(1);
-            dataOut.writeUTF(file.getName());
-            
+        DataOutputStream out;
+        try {
+            out = new DataOutputStream(outputStream);
+            out.writeUTF(file.getName());
+
+
             long length = file.length();
             if(length > Integer.MAX_VALUE)
                 Popup("WARNING","file is to large!",Color.RED);
@@ -460,16 +466,16 @@ public class ClientUploadFrame extends javax.swing.JFrame implements Runnable {
             {
                 bufOut.write(bytes, 0, count);
             }
+            
+            /* bufferInput dan output ketika ditutup menyebabkan socket juga ditutup
+             * untuk itu perlu dibangun lagi koneksi baru dengan server;
+             */
             bufOut.flush();
             bufOut.close();
             bufIn.close();
-            fileStream.close();
-            state = IDLE;
-            System.out.println("file already sent");
-           
-        }catch(Exception e)
-        {
-            state = IDLE;
+            Popup("SUCCESS","FILE UPLOAD SUCCESS!",Color.BLACK);
+            Connect(); // bangun koneksi baru dengan socket
+        } catch (IOException ex) {
             Popup("Warning","Something wrong with your connection",Color.red);
         }
     }
